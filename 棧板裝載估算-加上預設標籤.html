@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>棧板裝載估算</title>
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--tx:#222;--mu:#6b6b66;--bd:#d8d6cf;--ac:#c2453d;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1d1d1b;--card:#292926;--tx:#eceae3;--mu:#a3a199;--bd:#44433e;--ac:#ee7a70}}
+:root[data-theme="dark"]{--bg:#1d1d1b;--card:#292926;--tx:#eceae3;--mu:#a3a199;--bd:#44433e;--ac:#ee7a70}
+html{color-scheme:light dark}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.6 -apple-system,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif}
+main{max-width:1000px;margin:0 auto;padding:12px;display:grid;gap:12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px 14px}
+h1{font-size:18px;margin:0}
+.in{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px 12px;align-items:end}
+.in label{display:flex;flex-direction:column;font-size:13px;color:var(--mu);gap:2px}
+.in b{font-size:13px;grid-column:1/-1;margin-top:4px}
+input[type=number],select{width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit}
+.chk{flex-direction:row!important;align-items:center;gap:6px!important;color:var(--tx)!important}
+.big{display:flex;flex-wrap:wrap;gap:8px 28px;align-items:baseline}
+.big b{font-size:40px;line-height:1.1}.big span{color:var(--mu)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.chips button{padding:5px 10px;border:1px solid var(--bd);border-radius:16px;background:var(--bg);color:var(--tx);font:inherit;font-size:13px;cursor:pointer}
+.chips button.on{background:var(--ac);border-color:var(--ac);color:#fff}
+.cv{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+canvas{width:100%;display:block;border-radius:8px;background:var(--bg)}
+.note{font-size:13px;color:var(--mu);margin:6px 0 0}
+.btn{padding:7px 14px;border:1px solid var(--ac);border-radius:8px;background:var(--ac);color:#fff;font:inherit;cursor:pointer;margin-top:4px}
+</style></head><body>
+<main>
+<h1>棧板裝載估算</h1>
+<section class="card"><div class="chips" id="gchips"></div><div class="chips" id="ochips"></div><div class="in">
+<label>棧板規格<select id="pre"><option value="1">120 × 100 × 15 木棧板</option><option value="2">110 × 110 × 15 塑膠棧板</option><option value="0">自訂</option></select></label>
+<label>棧板長<input type="number" id="L" value="120" step="any"></label>
+<label>棧板寬<input type="number" id="W" value="100" step="any"></label>
+<label>棧板高<input type="number" id="PH" value="15" step="any"></label>
+<label>含棧板總高限制<input type="number" id="TH" value="150" step="any"></label>
+<b>物品尺寸（cm）</b>
+<label>長<input type="number" id="l" value="40" step="any"></label>
+<label>寬<input type="number" id="w" value="30" step="any"></label>
+<label>高（朝上）<input type="number" id="h" value="20" step="any"></label>
+<label class="chk"><input type="checkbox" id="rot" checked>允許水平旋轉</label>
+</div></section>
+<section class="card">
+<div class="big" id="big"></div>
+<div class="chips" id="chips"></div>
+<p class="note" id="txt"></p>
+</section>
+<section class="cv"><div class="card"><canvas id="c3"></canvas></div><div class="card"><canvas id="c2"></canvas></div></section>
+<div><button class="btn" id="exp">存成圖片</button></div>
+</main>
+<script>
+const $=id=>document.getElementById(id),E=1e-9;let EXP=0,sel=0,S=null;
+const cnt=(w,h,o)=>Math.floor(w/o[0]+E)*Math.floor(h/o[1]+E);
+function grid(x,y,w,h,o,out){const nx=Math.floor(w/o[0]+E),ny=Math.floor(h/o[1]+E);for(let i=0;i<nx;i++)for(let j=0;j<ny;j++)out.push([x+i*o[0],y+j*o[1],o[0],o[1]])}
+function two(L,W,os){let b={n:-1};
+for(const o1 of os)for(const o2 of os){
+for(let n=0;n<=Math.floor(L/o1[0]+E);n++){const k=n*o1[0],c=cnt(k,W,o1)+cnt(L-k,W,o2);if(c>b.n)b={n:c,ax:0,k,o1,o2}}
+for(let n=0;n<=Math.floor(W/o1[1]+E);n++){const k=n*o1[1],c=cnt(L,k,o1)+cnt(L,W-k,o2);if(c>b.n)b={n:c,ax:1,k,o1,o2}}}
+const out=[];if(b.ax==0){grid(0,0,b.k,W,b.o1,out);grid(b.k,0,L-b.k,W,b.o2,out)}else{grid(0,0,L,b.k,b.o1,out);grid(0,b.k,L,W-b.k,b.o2,out)}return out}
+function pin(L,W,a,b){let best={n:-1};const mult=(m,mx)=>{const r=[];for(let i=0;i*m<=mx+E;i++)r.push(i*m);return r};const U=x=>[...new Set(x.map(v=>Math.round(v*1e6)/1e6))].filter(v=>v>=-E);
+for(const[oA,oB]of[[[a,b],[b,a]],[[b,a],[a,b]]]){const oC=oA,oD=oB;
+const Ps=U([...mult(oA[0],L),...mult(oB[0],L).map(v=>L-v)]),Qs=U([...mult(oA[1],W),...mult(oD[1],W).map(v=>W-v)]),Rs=U([...mult(oB[1],W),...mult(oC[1],W).map(v=>W-v)]),Ss=U([...mult(oD[0],L),...mult(oC[0],L).map(v=>L-v)]);
+if(Ps.length*Qs.length*Rs.length*Ss.length>4e6)continue;
+for(const p of Ps)for(const q of Qs)for(const r of Rs)for(const s of Ss){if(s<p-E&&r<q-E)continue;if(s>p+E&&q<r-E)continue;const n=cnt(p,q,oA)+cnt(L-p,r,oB)+cnt(L-s,W-r,oC)+cnt(s,W-q,oD);if(n>best.n)best={n,p,q,r,s,oA,oB,oC,oD}}}
+if(best.n<=0)return null;const o=best,out=[];grid(0,0,o.p,o.q,o.oA,out);grid(o.p,0,L-o.p,o.r,o.oB,out);grid(o.s,o.r,L-o.s,W-o.r,o.oC,out);grid(0,o.q,o.s,W-o.q,o.oD,out);return out}
+function plans(L,W,a,b,rot){const P=[],A=[];grid(0,0,L,W,[a,b],A);P.push({name:'整齊排列',r:A});
+if(rot&&a!==b){const B=[];grid(0,0,L,W,[b,a],B);if(B.length!==A.length)P.push({name:'整齊排列（轉 90°）',r:B});
+const t=two(L,W,[[a,b],[b,a]]),pw=pin(L,W,a,b),m=pw&&pw.length>t.length?{name:'風車式排列',r:pw}:{name:'兩區塊混向',r:t};
+if(m.r.length>Math.max(A.length,B.length))P.push(m)}
+return P.sort((x,y)=>y.r.length-x.r.length)}
+const PRE={1:[120,100,15],2:[110,110,15]};
+$('pre').onchange=()=>{const p=PRE[$('pre').value];if(p){$('L').value=p[0];$('W').value=p[1];$('PH').value=p[2]}sel=0;calc()};
+document.querySelectorAll('input').forEach(e=>e.addEventListener('input',()=>{if('LWPH'.includes(e.id)&&e.type=='number'&&e.id.length<3&&'LW'.includes(e.id)||e.id=='PH')$('pre').value=0;sel=0;oi=-1;tags();calc()}));
+const f=v=>Math.round(v*10)/10;
+function calc(){
+const L=+$('L').value,W=+$('W').value,PH=+$('PH').value||0,TH=+$('TH').value,l=+$('l').value,w=+$('w').value,h=+$('h').value,H=TH-PH;
+if(![L,W,H,l,w,h].every(v=>v>0)){$('big').innerHTML='<span>請輸入有效尺寸（總高需大於棧板高）</span>';$('chips').innerHTML='';$('txt').textContent='';S=null;draw();return}
+const layers=Math.floor(H/h+E),P=plans(L,W,l,w,$('rot').checked);
+if(sel>=P.length)sel=0;const p=P[sel],n=p.r.length,tot=n*layers;
+if(!tot){$('big').innerHTML='<span>物品放不進這個棧板或高度限制</span>';$('chips').innerHTML='';$('txt').textContent='';S=null;draw();return}
+let uL=0,uW=0;p.r.forEach(r=>{uL=Math.max(uL,r[0]+r[2]);uW=Math.max(uW,r[1]+r[3])});
+const uH=layers*h;S={L,W,PH,TH,layers,h,r:p.r};
+$('big').innerHTML='<b>'+tot+' 個</b><span>每層 '+n+' 個 × '+layers+' 層</span><span>含棧板總高 '+f(PH+uH)+' cm（限 '+TH+'）</span><span>空間利用率 '+(tot*l*w*h/(L*W*H)*100).toFixed(1)+'%</span>';
+$('chips').innerHTML=P.map((q,i)=>'<button class="'+(i==sel?'on':'')+'" data-i="'+i+'">'+q.name+'：每層 '+q.r.length+' 個</button>').join('');
+$('chips').querySelectorAll('button').forEach(b=>b.onclick=()=>{sel=+b.dataset.i;calc()});
+$('txt').textContent='使用空間（長×寬×高）：'+f(uL)+' × '+f(uW)+' × '+f(uH)+' cm。剩餘：長度方向 '+f(L-uL)+' cm、寬度方向 '+f(W-uW)+' cm、上方 '+f(H-uH)+' cm。';
+draw()}
+function setup(cv,ratio){const d=EXP||devicePixelRatio||1,w=cv.clientWidth,h=Math.round(w*ratio);cv.width=w*d;cv.height=h*d;cv.style.height=h+'px';const g=cv.getContext('2d');g.setTransform(d,0,0,d,0,0);g.clearRect(0,0,w,h);return[g,w,h]}
+function draw(){d3();d2()}
+function d3(){const[g,cw,ch]=setup($('c3'),.85);if(!S)return;
+const{L,W,PH,TH,layers,h,r}=S,C=.866,P=(x,y,z)=>[(x-y)*C,(x+y)*.5-z],cs=getComputedStyle(document.documentElement),tx=cs.getPropertyValue('--tx'),mu=cs.getPropertyValue('--mu');
+const pts=[];for(const x of[0,L])for(const y of[0,W])for(const z of[0,TH])pts.push(P(x,y,z));
+const x0=Math.min(...pts.map(p=>p[0])),x1=Math.max(...pts.map(p=>p[0])),y0=Math.min(...pts.map(p=>p[1])),y1=Math.max(...pts.map(p=>p[1]));
+const s=Math.min((cw-110)/(x1-x0),(ch-70)/(y1-y0)),ox=(cw-(x1-x0)*s)/2-x0*s,oy=(ch-(y1-y0)*s)/2-y0*s-8;
+const T=(x,y,z)=>{const p=P(x,y,z);return[ox+p[0]*s,oy+p[1]*s]};
+function poly(a,fl,st){g.beginPath();a.forEach((q,i)=>{const p=T(q[0],q[1],q[2]);i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1])});g.closePath();g.fillStyle=fl;g.fill();g.strokeStyle=st;g.lineWidth=.6;g.stroke()}
+function box(x,y,z,dx,dy,dz,c,st){const X=x+dx,Y=y+dy,Z=z+dz;poly([[x,Y,z],[X,Y,z],[X,Y,Z],[x,Y,Z]],c[1],st);poly([[X,y,z],[X,Y,z],[X,Y,Z],[X,y,Z]],c[2],st);poly([[x,y,Z],[X,y,Z],[X,Y,Z],[x,Y,Z]],c[0],st)}
+g.strokeStyle=mu;g.lineWidth=.8;g.setLineDash([4,3]);
+[[0,0,0,0,0,TH],[L,0,0,L,0,TH],[0,W,0,0,W,TH],[L,W,0,L,W,TH],[0,0,TH,L,0,TH],[0,W,TH,L,W,TH],[0,0,TH,0,W,TH],[L,0,TH,L,W,TH]].forEach(e=>{const a=T(e[0],e[1],e[2]),b=T(e[3],e[4],e[5]);g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);g.stroke()});g.setLineDash([]);
+box(0,0,0,L,W,PH,['#e3bd7e','#c99b58','#a97d3f'],'#5a3c14');
+const list=[...r].sort((a,b)=>(a[0]+a[2]/2+a[1]+a[3]/2)-(b[0]+b[2]/2+b[1]+b[3]/2));
+for(let k=0;k<layers;k++)for(const q of list)box(q[0],q[1],PH+k*h,q[2],q[3],h,['#ff9c9c','#ff7070','#e65c5c'],'#6b1f1f');
+g.fillStyle=tx;g.font='600 13px sans-serif';g.textBaseline='middle';
+let p=T(L/2,W,0);g.textAlign='center';g.fillText('長 '+f(L)+' cm',p[0]-42,p[1]+22);
+p=T(L,W/2,0);g.fillText('寬 '+f(W)+' cm',p[0]+42,p[1]+22);
+p=T(0,W,TH);g.textAlign='right';g.fillText('限高 '+f(TH)+' cm',p[0]-6,p[1]-4)}
+function d2(){const[g,cw,ch]=setup($('c2'),.85);if(!S)return;
+const{L,W,r}=S,cs=getComputedStyle(document.documentElement),s=Math.min((cw-70)/L,(ch-50)/W),ox=(cw-L*s)/2+14,oy=(ch-W*s)/2+8;
+r.forEach(q=>{g.fillStyle='#ff8484';g.fillRect(ox+q[0]*s,oy+q[1]*s,q[2]*s,q[3]*s);g.strokeStyle='#6b1f1f';g.lineWidth=.6;g.strokeRect(ox+q[0]*s,oy+q[1]*s,q[2]*s,q[3]*s)});
+g.strokeStyle=cs.getPropertyValue('--mu');g.lineWidth=1.2;g.strokeRect(ox,oy,L*s,W*s);
+g.fillStyle=cs.getPropertyValue('--tx');g.font='600 13px sans-serif';g.textBaseline='middle';g.textAlign='center';g.fillText('長 '+f(L)+' cm',ox+L*s/2,oy-14);
+g.textAlign='right';g.fillText('寬 '+f(W),ox-8,oy+W*s/2);g.textAlign='left';g.fillStyle=cs.getPropertyValue('--mu');g.fillText('俯視圖（每層）',ox,oy+W*s+16)}
+function exportImg(){
+if(!S)return;
+EXP=4;draw();
+const cs=getComputedStyle(document.documentElement),bg=cs.getPropertyValue('--card').trim(),tx=cs.getPropertyValue('--tx').trim(),on=$('chips').querySelector('.on');
+const lines=[...(oi>=0?['品項：'+G[gi].n+'／'+G[gi].o[oi][0]]:[]),'棧板規格：'+f(S.L)+' × '+f(S.W)+' × '+f(S.PH)+' cm（含棧板總高限制 '+f(S.TH)+' cm）','物品尺寸：'+$('l').value+' × '+$('w').value+' × '+$('h').value+' cm'+($('rot').checked?'（允許水平旋轉）':''),'結果：'+$('big').innerText.replace(/\s*\n+\s*/g,'　'),on?'排法：'+on.textContent:'',$('txt').textContent].filter(Boolean);
+const W0=900,iw=W0-40,K=3,g0=document.createElement('canvas').getContext('2d'),rows=[];g0.font='15px sans-serif';
+lines.forEach(t=>{let cur='';for(const c of t){if(g0.measureText(cur+c).width>iw){rows.push(cur);cur=c}else cur+=c}rows.push(cur)});
+const cw2=(iw-12)/2,ih=Math.round(cw2*$('c3').height/$('c3').width),iy=52+rows.length*24+8,H=iy+ih+20;
+const cv=document.createElement('canvas');cv.width=W0*K;cv.height=H*K;const g=cv.getContext('2d');g.scale(K,K);g.imageSmoothingQuality='high';g.fillStyle=bg;g.fillRect(0,0,W0,H);g.fillStyle=tx;g.textBaseline='middle';
+g.font='600 18px sans-serif';g.fillText('棧板裝載估算',20,22);g.font='15px sans-serif';rows.forEach((t,i)=>g.fillText(t,20,52+i*24));
+g.drawImage($('c3'),20,iy,cw2,ih);g.drawImage($('c2'),20+cw2+12,iy,cw2,Math.round(cw2*$('c2').height/$('c2').width));
+EXP=0;draw();
+cv.toBlob(async b=>{let d=null;try{d=window.claude&&claude.use?await claude.use('downloads'):null}catch(e){}
+if(d){try{await d.save({filename:'pallet-plan.png',data:b});return}catch(e){if(e&&e.code=='declined')return}}
+const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='pallet-plan.png';document.body.appendChild(a);a.click();a.remove()},'image/png')}
+const G=[{n:'松露米片 與 蒜香高蛋白',th:130,o:[['現行',38.5,19,19],['原規劃',40,20.5,20.5],['方案 A（縮寬）',40,20,20.5],['方案 B（縮寬、加高）',40,20,22]]},
+{n:'蜊蜜米花 與 畿室米花',th:130,o:[['現行（寬 16）',38.5,16,19],['現行（寬 15.85）',38.5,15.85,19],['規劃（長寬與同現行松露）',38.5,19,14]]},
+{n:'韓國 蜊蜜米花',th:126,o:[['現行',38.5,15.85,18.5],['方案 A（與國內規劃相同）',38.5,19,14],['方案 B（降高為 13）',38.5,19,13]]}];
+let gi=-1,oi=-1;
+function tags(){$('gchips').innerHTML=G.map((g,i)=>'<button class="'+(i==gi?'on':'')+'" data-g="'+i+'">'+g.n+'</button>').join('');
+$('ochips').innerHTML=gi<0?'':G[gi].o.map((o,i)=>'<button class="'+(i==oi?'on':'')+'" data-o="'+i+'">'+o[0]+'</button>').join('');
+$('gchips').querySelectorAll('button').forEach(b=>b.onclick=()=>{gi=+b.dataset.g;oi=-1;tags()});
+$('ochips').querySelectorAll('button').forEach(b=>b.onclick=()=>{oi=+b.dataset.o;const g=G[gi],o=g.o[oi];$('L').value=120;$('W').value=100;$('PH').value=15;$('TH').value=g.th;$('l').value=o[1];$('w').value=o[2];$('h').value=o[3];$('pre').value=1;sel=0;tags();calc()})}
+tags();
+$('exp').onclick=exportImg;
+addEventListener('resize',draw);calc();
+</script></body></html>
