@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>裝箱數量估算</title>
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--tx:#222;--mu:#6b6b66;--bd:#d8d6cf;--ac:#c2453d;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1d1d1b;--card:#292926;--tx:#eceae3;--mu:#a3a199;--bd:#44433e;--ac:#ee7a70}}
+:root[data-theme="dark"]{--bg:#1d1d1b;--card:#292926;--tx:#eceae3;--mu:#a3a199;--bd:#44433e;--ac:#ee7a70}
+html{color-scheme:light dark;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.6 -apple-system,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif}
+main{max-width:1000px;margin:0 auto;padding:16px;display:grid;grid-template-columns:minmax(260px,320px) 1fr;gap:16px}
+@media(max-width:760px){main{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:16px}
+h1{font-size:20px;margin:0 0 4px;grid-column:1/-1}
+h2{font-size:15px;margin:14px 0 8px;font-weight:600}
+h2:first-child{margin-top:0}
+label{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0;color:var(--mu);font-size:14px}
+input[type=number],select{width:90px;padding:6px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit}
+select{width:100%}
+.tabs{display:flex;gap:6px;margin-bottom:10px}
+.tabs button{flex:1;padding:8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit;cursor:pointer}
+.tabs button.on{background:var(--ac);border-color:var(--ac);color:#fff}
+.chk{justify-content:flex-start;color:var(--tx)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:12px}
+.stat{background:var(--bg);border-radius:8px;padding:10px}
+.stat b{display:block;font-size:24px;line-height:1.2}
+.stat span{font-size:13px;color:var(--mu)}
+canvas{width:100%;display:block;border-radius:8px;background:var(--bg)}
+.row{display:flex;gap:10px;align-items:center;padding:8px;border:1px solid var(--bd);border-radius:10px;margin-bottom:8px;cursor:pointer}.row.on{border-color:var(--ac);outline:1px solid var(--ac)}.row canvas{width:120px;height:76px;flex:none}.btn{padding:8px 12px;border:1px solid var(--ac);border-radius:8px;background:var(--ac);color:#fff;font:inherit;cursor:pointer;margin-bottom:10px}.row span{font-size:13px;color:var(--mu)}
+.note{font-size:13px;color:var(--mu);margin:8px 0 0}
+</style></head><body>
+<main>
+<h1>裝箱數量估算</h1>
+<section class="card">
+<div class="tabs"><button id="m-box" class="on">容器（紙箱／貨櫃）</button><button id="m-pal">棧板</button></div>
+<h2 id="t-c">容器內部尺寸（cm）</h2>
+<select id="preset"></select>
+<label>長 L<input type="number" id="L" value="60" min="1" step="any"></label>
+<label>寬 W<input type="number" id="W" value="40" min="1" step="any"></label>
+<label id="lh"><span id="lh-t">高 H</span><input type="number" id="H" value="40" min="1" step="any"></label>
+<label id="lp" style="display:none">棧板自身高度<input type="number" id="PH" value="15" min="0" step="any"></label>
+<div id="rsv"><label>兩側各預留<input type="number" id="rsS" value="0" min="0" step="any"></label><label>尾端（門側）預留<input type="number" id="rsE" value="0" min="0" step="any"></label><label>頂部預留<input type="number" id="rsT" value="0" min="0" step="any"></label>
+<label>貨櫃角部結構邊長（0＝不考慮）<input type="number" id="pc" value="15" min="0" step="any"></label><label>結構高度（從頂部往下）<input type="number" id="pch" value="15" min="0" step="any"></label><label class="chk"><input type="checkbox" id="pb">前後端四個角都有結構（預設只有最裡面兩角）</label><p class="note">貨櫃內壁有波紋與角柱，貨物無法貼齊。預留值（cm）會從可用空間扣除，剩餘空間標示也以扣除後為準。</p></div>
+<h2>物品尺寸（cm）</h2>
+<label>長<input type="number" id="l" value="20" min="0.1" step="any"></label>
+<label>寬<input type="number" id="w" value="15" min="0.1" step="any"></label>
+<label>高<input type="number" id="h" value="10" min="0.1" step="any"></label>
+<label class="chk"><input type="checkbox" id="bag">軟包裝（卷膜袋、零食袋）</label>
+<div id="bagopts" style="display:none"><label>厚度可壓縮 %<input type="number" id="cp" value="0" min="0" max="60" step="any"></label><label class="chk"><input type="checkbox" id="cross">交叉疊放（逐層轉 90°）</label><p class="note">長、寬 = 平放袋面尺寸，高 = 充填後厚度。勾選「允許側放」時，袋子可側躺（袋緣朝上）或立放；壓縮率代表疊放擠壓後厚度的縮減，各種方向都會套用。</p></div>
+<h2>擺放限制</h2>
+<label class="chk"><input type="checkbox" id="rot" checked>允許水平旋轉（長寬對調）</label>
+<label class="chk"><input type="checkbox" id="tip" checked>允許側放／倒放（換面朝上）</label>
+<p class="note">不考慮重量、緩衝空間與包裝厚度。結果為估算值，實際裝載請預留餘量。</p>
+</section>
+<section class="card">
+<div class="stats" id="stats"></div>
+<h2>立體圖</h2><canvas id="c3"></canvas>
+<h2>單一物品擺放方向（cm）</h2><canvas id="c1"></canvas>
+<h2 id="t2">俯視圖（第 1 層）</h2><label class="chk"><span>檢視層數</span><input type="range" id="ly" min="1" max="1" value="1" style="flex:1"></label><canvas id="c2"></canvas>
+<p class="note" id="desc"></p>
+<h2>方案比較（點選切換上方圖面）</h2><button class="btn" id="exp">另存目前方案為圖片</button><div id="plans"></div>
+</section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+let mode='box',res=null;
+const PRE={box:[['自訂',60,40,40],['20 呎貨櫃（內）',589,235,239],['40 呎貨櫃（內）',1203,235,239],['40 呎高櫃（內）',1203,235,269]],
+pal:[['自訂',110,110,150],['110 × 110 棧板',110,110,150],['120 × 100 棧板',120,100,150]]};
+function fillPreset(){$('preset').innerHTML=PRE[mode].map((p,i)=>'<option value="'+i+'">'+p[0]+'</option>').join('')}
+$('preset').onchange=()=>{const p=PRE[mode][$('preset').value];if($('preset').value>0){$('L').value=p[1];$('W').value=p[2];$('H').value=p[3]}calc()};
+function setMode(m){mode=m;$('m-box').className=m=='box'?'on':'';$('m-pal').className=m=='pal'?'on':'';
+$('lp').style.display=m=='pal'?'flex':'none';$('rsv').style.display=m=='pal'?'none':'block';$('lh-t').textContent=m=='pal'?'可堆疊高度（不含棧板）':'高 H';
+$('t-c').textContent=m=='pal'?'棧板尺寸與堆疊高度（cm）':'容器內部尺寸（cm）';fillPreset();
+if(m=='pal'){$('L').value=110;$('W').value=110;$('H').value=150;$('preset').value=1}else{$('L').value=60;$('W').value=40;$('H').value=40}calc()}
+$('m-box').onclick=()=>setMode('box');$('m-pal').onclick=()=>setMode('pal');
+const E=1e-9,cnt=(rw,rh,o)=>Math.floor(rw/o[0]+E)*Math.floor(rh/o[1]+E);
+function grid(x,y,rw,rh,o,out){const nx=Math.floor(rw/o[0]+E),ny=Math.floor(rh/o[1]+E);for(let i=0;i<nx;i++)for(let j=0;j<ny;j++)out.push([x+i*o[0],y+j*o[1],o[0],o[1]])}
+function postList(L,W){const c=POST.c;return c>0?[[0,0,c,c,1],[0,W-c,c,c,1]].concat(POST.both?[[L-c,0,c,c,1],[L-c,W-c,c,c,1]]:[]):[]}
+function packPosts(L,W,p,q,rot){
+const c=POST.c,both=POST.both,os=[[p,q]];if(rot&&p!==q)os.push([q,p]);
+let best=null;const cache={};const B=len=>cache[len]||(cache[len]=packLayer(len,W,p,q,rot,1));
+for(const o of os){const nW=Math.max(0,Math.floor((W-2*c)/o[1]+E));
+for(let n1=0;n1*o[0]<=L+E;n1++)for(let n2=0;n2*o[0]<=L+E&&(both||n2==0);n2++){
+const bs=Math.max(n1*o[0],c),fe=both?Math.max(n2*o[0],c):0,len=Math.round((L-fe-bs)*1e6)/1e6;if(len<-E)continue;
+const tot=(n1+n2)*nW+(len>0?B(len).length:0);if(!best||tot>best.tot)best={tot,o,n1,n2,bs,len}}}
+if(!best)return[];
+const out=[],o=best.o;grid(0,c,best.n1*o[0],W-2*c,o,out);grid(L-best.n2*o[0],c,best.n2*o[0],W-2*c,o,out);
+if(best.len>0)B(best.len).forEach(r=>out.push([r[0]+best.bs,r[1],r[2],r[3]]));
+return out}
+function pin(L,W,a,b){
+let best={n:-1};const mult=(m,mx)=>{const r=[];for(let i=0;i*m<=mx+E;i++)r.push(i*m);return r};
+const U=x=>[...new Set(x.map(v=>Math.round(v*1e6)/1e6))].filter(v=>v>=-E);
+for(const[oA,oB]of[[[a,b],[b,a]],[[b,a],[a,b]]]){const oC=oA,oD=oB;
+const Ps=U([...mult(oA[0],L),...mult(oB[0],L).map(v=>L-v)]),Qs=U([...mult(oA[1],W),...mult(oD[1],W).map(v=>W-v)]),Rs=U([...mult(oB[1],W),...mult(oC[1],W).map(v=>W-v)]),Ss=U([...mult(oD[0],L),...mult(oC[0],L).map(v=>L-v)]);
+if(Ps.length*Qs.length*Rs.length*Ss.length>4e6)continue;
+for(const p of Ps)for(const q of Qs)for(const r of Rs)for(const s of Ss){
+if(s<p-E&&r<q-E)continue;if(s>p+E&&q<r-E)continue;
+const n=cnt(p,q,oA)+cnt(L-p,r,oB)+cnt(L-s,W-r,oC)+cnt(s,W-q,oD);
+if(n>best.n)best={n,p,q,r,s,oA,oB,oC,oD}}}
+if(best.n<=0)return null;
+const o=best,out=[];grid(0,0,o.p,o.q,o.oA,out);grid(o.p,0,L-o.p,o.r,o.oB,out);grid(o.s,o.r,L-o.s,W-o.r,o.oC,out);grid(0,o.q,o.s,W-o.q,o.oD,out);
+return{n:out.length,rects:out}}
+function packLayer(L,W,p,q,rot,raw){if(POST.c>0&&POST.on&&!raw)return packPosts(L,W,p,q,rot);
+const os=[[p,q]];if(rot&&p!==q)os.push([q,p]);let b={n:-1};
+for(const o1 of os)for(const o2 of os){
+for(let n=0;n<=Math.floor(L/o1[0]+E);n++){const k=n*o1[0],c=cnt(k,W,o1)+cnt(L-k,W,o2);if(c>b.n)b={n:c,ax:0,k,o1,o2}}
+for(let n=0;n<=Math.floor(W/o1[1]+E);n++){const k=n*o1[1],c=cnt(L,k,o1)+cnt(L,W-k,o2);if(c>b.n)b={n:c,ax:1,k,o1,o2}}}
+if(rot&&p!==q&&raw!==1){const pw=pin(L,W,p,q);if(pw&&pw.n>b.n){pw.rects.kind='pinwheel';return pw.rects}}
+const out=[];if(b.n<=0)return out;
+if(b.ax==0){grid(0,0,b.k,W,b.o1,out);grid(b.k,0,L-b.k,W,b.o2,out)}else{grid(0,0,L,b.k,b.o1,out);grid(0,b.k,L,W-b.k,b.o2,out)}
+return out}
+function why(b,L,W){if(b.rectsB)return ' 交叉疊放：奇數層每層 '+b.rects.length+' 個，偶數層轉 90° 每層 '+b.rectsB.length+' 個，上下層交錯較穩定（不要求交叉時最多可放 '+packLayer(L,W,b.fp[0],b.fp[1],true).length*b.layers+' 個）。';const ks=new Set(b.rects.map(r=>Math.round(r[2]*1e4)+'x'+Math.round(r[3]*1e4)));if(ks.size<2)return '';
+const n0=packLayer(L,W,b.fp[0],b.fp[1],false).length,n1=b.rects.length;
+return n1>n0?' 轉向原因：不轉向時每層最多放 '+n0+' 個，剩下的空隙放不下一個物品；把部分物品水平轉 90° 去填空隙後，每層可放 '+n1+' 個（多 '+(n1-n0)+' 個）。':'';}
+let sel=0,POST={c:0,both:false};
+function calc(keep){
+POST={c:mode=='box'?Math.max(0,+$('pc').value||0):0,both:$('pb').checked,hp:Math.max(0,+$('pch').value||0),on:false};
+const rs=mode=='box'?[+$('rsS').value||0,+$('rsE').value||0,+$('rsT').value||0]:[0,0,0];
+const L=(+$('L').value)-rs[1],W=(+$('W').value)-2*rs[0],H=(+$('H').value)-rs[2],PH=mode=='pal'?+$('PH').value||0:0;
+const bag=$('bag').checked;$('bagopts').style.display=bag?'block':'none';
+const cp=bag?Math.min(60,Math.max(0,+$('cp').value||0)):0,cross=bag&&$('cross').checked;
+const I=[+$('l').value,+$('w').value,+$('h').value*(1-cp/100)],rot=$('rot').checked,tip=$('tip').checked;
+if(![L,W,H,...I].every(v=>v>0)){$('stats').innerHTML='<div class="stat"><span>請輸入大於 0 的尺寸</span></div>';res=null;$('plans').innerHTML='';draw();return}
+let best=null;
+const plans=[];const add=(v,c,fp,layers,name,rects,rectsB)=>{const total=rectsB?Math.ceil(layers/2)*rects.length+Math.floor(layers/2)*rectsB.length:layers*rects.length;if(total>0)plans.push({total,layers,rects,rectsB,c,v,fp,name})};
+for(const v of(tip?[2,0,1]:[2])){const c=I[v],fp=[0,1,2].filter(i=>i!=v).map(i=>I[i]);
+const layers=Math.floor(H/c+E);if(layers<1)continue;
+const gA=packLayer(L,W,fp[0],fp[1],false),gB=packLayer(L,W,fp[1],fp[0],false),sq=fp[0]===fp[1];
+if(!cross){add(v,c,fp,layers,'整齊排列',gA);
+if(rot&&!sq){if(gB.length!==gA.length)add(v,c,fp,layers,'整齊排列（轉 90°）',gB);
+const mx=packLayer(L,W,fp[0],fp[1],true);if(mx.length>Math.max(gA.length,gB.length))add(v,c,fp,layers,mx.kind=='pinwheel'?'風車式排列':'兩區塊混向',mx)}}
+if(bag&&!sq){let A=gA,B=gB;if(B.length>A.length){const t=A;A=B;B=t}add(v,c,fp,layers,'交叉疊放',A,B)}}
+plans.forEach(p=>{p.S=Array.from({length:p.layers},(_,k)=>({rects:k%2&&p.rectsB?p.rectsB:p.rects,c:p.c,fp:p.fp,v:p.v}))});
+const rpC={},rpBest=fp=>{const key=fp.join('x');if(rpC[key])return rpC[key];POST.on=true;let b=packLayer(L,W,fp[0],fp[1],false);const b2=packLayer(L,W,fp[1],fp[0],false);if(b2.length>b.length)b=b2;if(rot){const b3=packLayer(L,W,fp[0],fp[1],true);if(b3.length>b.length)b=b3}POST.on=false;return rpC[key]=b};
+const adj=p=>{if(!(POST.c>0&&POST.hp>0))return;const thr=H-POST.hp;let z=0;p.S.forEach(l=>{if(z+l.c>thr+E){l.rects=rpBest(l.fp);l.res=true}z+=l.c});p.S=p.S.filter(l=>l.rects.length);p.layers=p.S.length;p.total=p.S.reduce((s,l)=>s+l.rects.length,0)};
+plans.forEach(adj);
+if(tip&&!cross){const T3=[2,0,1].map(v=>{const c=I[v],fp=[0,1,2].filter(i=>i!=v).map(i=>I[i]);return{v,c,fp,rects:packLayer(L,W,fp[0],fp[1],rot),rp:POST.c>0&&POST.hp>0?rpBest(fp).length:0,m:Math.floor(H/c+E)}}).filter(t=>t.m>0&&t.rects.length>0);
+if(T3.length>1&&T3.reduce((s,t)=>s*(t.m+1),1)<3e6){let bk=null,bt=Math.max(0,...plans.map(p=>p.total));const thr=H-POST.hp,pen=POST.c>0&&POST.hp>0?(ks=>{const sg=T3.map((t,i)=>({t,k:ks[i]})).filter(s=>s.k>0).sort((a,b)=>b.k-a.k);let zs=0,lost=0;sg.forEach(s=>{const m=Math.max(0,Math.min(s.k,Math.floor((thr-zs)/s.t.c+E)));lost+=(s.k-m)*Math.max(0,s.t.rects.length-s.t.rp);zs+=s.k*s.t.c});return lost}):(()=>0);const ks=new Array(T3.length).fill(0);
+(function rec(i,hl,tot){if(i==T3.length){const t2=tot-pen(ks);if(t2>bt){bt=t2;bk=ks.slice()}return}
+for(let k=0;k<=T3[i].m&&hl+k*T3[i].c<=H+E;k++){ks[i]=k;rec(i+1,hl+k*T3[i].c,tot+k*T3[i].rects.length)}ks[i]=0})(0,0,0);
+if(bk){const seg=T3.map((t,i)=>({v:t.v,k:bk[i],n:t.rects.length,t})).filter(s=>s.k>0).sort((a,b)=>b.k-a.k);const S=[];seg.forEach(s=>{for(let j=0;j<s.k;j++)S.push({rects:s.t.rects,c:s.t.c,fp:s.t.fp,v:s.v})});
+const mp={total:bt,layers:S.length,rects:S[0].rects,rectsB:null,c:S[0].c,v:S[0].v,fp:S[0].fp,name:'分層混向',S,seg};adj(mp);plans.push(mp)}}}
+plans.sort((a,b)=>b.total-a.total);if(!keep)sel=0;sel=Math.min(sel,Math.max(0,plans.length-1));best=plans[sel]||null;
+res=best?{...best,L,W,H,PH}:{total:0,layers:0,rects:[],L,W,H,PH};
+const vol=L*W*H,ub=Math.floor(vol/(I[0]*I[1]*I[2])+E);
+const util=res.total*I[0]*I[1]*I[2]/vol*100;
+$('stats').innerHTML=[[res.total,'可放數量（個）'],[(res.seg?res.layers+' 層（混向）':res.layers+' 層 × '+res.rects.length+(res.rectsB?' / '+res.rectsB.length:'')),'層數 × 每層個數'],[util.toFixed(1)+'%','空間利用率'],[ub,'體積理論上限']].map(s=>'<div class="stat"><b>'+s[0]+'</b><span>'+s[1]+'</span></div>').join('');
+if(!best){$('desc').textContent='物品太大，放不進這個空間。'}else{
+const names=['長','寬','高'],mixed=new Set(best.rects.map(r=>r[2]+'x'+r[3])).size>1;
+$('desc').textContent='擺放方式：物品以「'+names[best.v]+'（'+I[best.v]+' cm）」朝上'+(best.v==2?'（原方向）':'（側放／倒放）')+'，底面 '+best.fp[0]+' × '+best.fp[1]+' cm，'+(best.rects.kind=='pinwheel'?'每層為風車式（四區塊繞中心）排列':mixed?'每層為兩區塊混向排列':'每層整齊對齊')+'，共 '+best.layers+' 層。'+why(best,L,W)+(res.total<ub?' 與體積上限差 '+(ub-res.total)+' 個，是因為尺寸無法剛好整除而留下縫隙。':'')}
+if(best&&best.seg)$('desc').textContent='分層混向擺放：'+best.seg.map(s=>'以「'+['長','寬','高'][s.v]+'」朝上疊 '+s.k+' 層（每層 '+s.n+' 個）').join('，再')+'。';
+if(best&&best.S.some(l=>l.res)){const rl=best.S.filter(l=>l.res);$('desc').textContent+=' 頂部 '+rl.length+' 層需避開貨櫃角部結構（'+POST.c+' × '+POST.c+' cm，高 '+POST.hp+' cm），該層每層 '+rl[0].rects.length+' 個。'}
+if(best){const q=gapInfo(res),f=v=>Math.round(v*10)/10;$('desc').textContent+=' 剩餘空間：上方 '+f(q.gh)+' cm、側邊（寬）'+f(q.gw)+' cm、尾端（長）'+f(q.gl)+' cm。'}
+draw();renderPlans(plans,I,L,W,H)}
+function renderPlans(P,I,L,W,H){
+const nm=['長','寬','高'],vol=L*W*H,iv=I[0]*I[1]*I[2],r1=v=>Math.round(v*10)/10;
+$('plans').innerHTML=P.length?P.slice(0,12).map((p,i)=>'<div class="row'+(i==sel?' on':'')+'"><canvas width="120" height="76"></canvas><div><b>'+(i+1)+'. '+p.name+'　'+p.total+' 個</b><br><span>'+nm[p.v]+'朝上（'+r1(I[p.v])+' cm），底面 '+r1(p.fp[0])+' × '+r1(p.fp[1])+'<br>'+(p.seg?p.seg.map(s=>nm[s.v]+'朝上 '+s.k+' 層×'+s.n).join(' + '):p.layers+' 層 × 每層 '+p.rects.length+(p.rectsB?' / '+p.rectsB.length:''))+'　利用率 '+(p.total*iv/vol*100).toFixed(1)+'%</span></div></div>').join(''):'<p class="note">沒有可行的方案。</p>';
+$('plans').querySelectorAll('.row').forEach((r,i)=>{r.onclick=()=>{sel=i;calc(true)};thumb(r.querySelector('canvas'),P[i],L,W)})}
+function gapInfo(r){let uL=0,uW=0,uH=0;const seen=new Set();r.S.forEach(l=>{uH+=l.c;if(!seen.has(l.rects)){seen.add(l.rects);l.rects.forEach(q=>{uL=Math.max(uL,q[0]+q[2]);uW=Math.max(uW,q[1]+q[3])})}});return{uL,uW,uH,gl:r.L-uL,gw:r.W-uW,gh:r.H-uH}}
+function gaps(g,T,r){const q=gapInfo(r),PH=r.PH,TH=PH+r.H,zt=PH+q.uH,f=v=>(Math.round(v*10)/10)+' cm';
+function seg(a,b,t){const p=T(...a),e=T(...b);g.save();g.strokeStyle='#e0a000';g.lineWidth=2.5;g.beginPath();g.moveTo(p[0],p[1]);g.lineTo(e[0],e[1]);g.stroke();
+const mx=(p[0]+e[0])/2,my=(p[1]+e[1])/2;g.font='600 12px sans-serif';const w=g.measureText(t).width+10;g.fillStyle='#fff7d6';g.lineWidth=1;g.fillRect(mx-w/2,my-10,w,20);g.strokeRect(mx-w/2,my-10,w,20);g.fillStyle='#4a3300';g.textAlign='center';g.textBaseline='middle';g.fillText(t,mx,my);g.restore()}
+if(q.gh>.05)seg([0,r.W,zt],[0,r.W,TH],'上方 '+f(q.gh));
+if(q.gl>.05)seg([q.uL,r.W,PH],[r.L,r.W,PH],'尾端 '+f(q.gl));
+if(q.gw>.05)seg([r.L,q.uW,PH],[r.L,r.W,PH],'側邊 '+f(q.gw))}
+function exportImg(){
+if(!res)return;
+const cs=getComputedStyle(document.documentElement),bg=cs.getPropertyValue('--card').trim(),tx=cs.getPropertyValue('--tx').trim(),f=v=>Math.round(v*10)/10,q=gapInfo(res),bag=$('bag').checked,cp=bag?+$('cp').value||0:0,pal=mode=='pal';
+const iv=$('l').value*$('w').value*$('h').value*(1-cp/100);
+const lines=['方案：'+res.name+'　可放 '+res.total+' 個（空間利用率 '+(res.total*iv/(res.L*res.W*res.H)*100).toFixed(1)+'%）',
+(pal?'棧板尺寸：'+res.L+' × '+res.W+'，棧板高 '+res.PH+'，可堆疊高度 '+res.H:'容器內部尺寸：'+$('L').value+' × '+$('W').value+' × '+$('H').value+'，扣除預留後可用 '+res.L+' × '+res.W+' × '+res.H)+' cm',
+'物品尺寸：'+$('l').value+' × '+$('w').value+' × '+$('h').value+' cm'+(bag?'（軟包裝，厚度壓縮 '+cp+'%）':''),
+'剩餘空間：上方 '+f(q.gh)+' cm、側邊（寬）'+f(q.gw)+' cm、尾端（長）'+f(q.gl)+' cm'];
+const secs=[['立體圖',$('c3')],['單一物品擺放方向（cm）',$('c1')],[$('t2').textContent,$('c2')]],W=900,iw=W-40;
+let H=30+lines.length*26+10;secs.forEach(s=>{H+=34+Math.round(iw*s[1].height/s[1].width)});
+const cv=document.createElement('canvas');cv.width=W;cv.height=H+10;const g=cv.getContext('2d');g.fillStyle=bg;g.fillRect(0,0,W,H+10);g.fillStyle=tx;g.textBaseline='middle';
+g.font='600 18px sans-serif';let y=30;lines.forEach((t,i)=>{g.font=(i?'400 15px':'600 18px')+' sans-serif';g.fillText(t,20,y);y+=26});y+=10;
+secs.forEach(s=>{g.font='600 15px sans-serif';g.fillStyle=tx;g.fillText(s[0],20,y+10);y+=26;const h=Math.round(iw*s[1].height/s[1].width);g.drawImage(s[1],20,y,iw,h);y+=h+8});
+cv.toBlob(async b=>{let d=null;try{d=window.claude&&claude.use?await claude.use('downloads'):null}catch(e){}
+if(d){try{await d.save({filename:'packing-plan.png',data:b});return}catch(e){if(e&&e.code=='declined')return}}
+const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='packing-plan.png';document.body.appendChild(a);a.click();a.remove()},'image/png')}
+function thumb(cv,p,L,W){const g=cv.getContext('2d'),w=cv.width,h=cv.height,s=Math.min((w-8)/L,(h-8)/W),ox=(w-L*s)/2,oy=(h-W*s)/2;
+p.rects.forEach(r=>{g.fillStyle='#ff8484';g.fillRect(ox+r[0]*s,oy+r[1]*s,r[2]*s,r[3]*s);if(p.rects.length<300){g.strokeStyle='#6b1f1f';g.lineWidth=.5;g.strokeRect(ox+r[0]*s,oy+r[1]*s,r[2]*s,r[3]*s)}});
+g.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--mu');g.lineWidth=1;g.strokeRect(ox,oy,L*s,W*s)}
+function setup(cv,ratio){const d=devicePixelRatio||1,w=cv.clientWidth,h=Math.round(w*ratio);cv.width=w*d;cv.height=h*d;cv.style.height=h+'px';const g=cv.getContext('2d');g.setTransform(d,0,0,d,0,0);return[g,w,h]}
+function draw(){draw3();draw1();draw2()}
+function draw1(){
+const[g,W0,ch]=setup($('c1'),0.5);g.clearRect(0,0,W0,ch);
+if(!res||!res.total)return;
+const m=new Map();res.S.forEach(l=>l.rects.forEach(r=>{const k=[r[2],r[3],l.c].map(v=>Math.round(v*1e4)/1e4).join('x');m.set(k,(m.get(k)||0)+1)}));
+const ors=[...m].sort((a,b)=>b[1]-a[1]),n=ors.length,cw=W0/n;
+ors.forEach(([k,c],i)=>{g.save();g.translate(i*cw,0);const d=k.split('x').map(Number);one(g,cw,ch-26,d[0],d[1],d[2],n>1?'方向 '+'ABCDEF'[i]+'：共 '+c+' 個':'');g.restore()})}
+function one(g,cw,ch,dx,dy,dz,cap){const C=.866;
+const P=(x,y,z)=>[(x-y)*C,(x+y)*.5-z];
+const pts=[];for(const x of[0,dx])for(const y of[0,dy])for(const z of[0,dz])pts.push(P(x,y,z));
+const x0=Math.min(...pts.map(p=>p[0])),x1=Math.max(...pts.map(p=>p[0])),y0=Math.min(...pts.map(p=>p[1])),y1=Math.max(...pts.map(p=>p[1]));
+const s=Math.min((cw-60)/(x1-x0),(ch-40)/(y1-y0)),ox=(cw-(x1-x0)*s)/2-x0*s,oy=(ch-(y1-y0)*s)/2-y0*s;
+const T=(x,y,z)=>{const p=P(x,y,z);return[ox+p[0]*s,oy+p[1]*s]};
+function poly(a,f){g.beginPath();a.forEach((q,i)=>{const p=T(q[0],q[1],q[2]);i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1])});g.closePath();g.fillStyle=f;g.fill();g.strokeStyle='#6b1f1f';g.lineWidth=1;g.stroke()}
+poly([[0,dy,0],[dx,dy,0],[dx,dy,dz],[0,dy,dz]],'#ff7070');
+poly([[dx,0,0],[dx,dy,0],[dx,dy,dz],[dx,0,dz]],'#e65c5c');
+poly([[0,0,dz],[dx,0,dz],[dx,dy,dz],[0,dy,dz]],'#ff9c9c');
+g.font='600 15px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillStyle='#3a0f0f';
+let p=T(dx/2,dy,dz);g.fillText(dx,p[0]-6,p[1]-12);
+p=T(dx,dy/2,dz);g.fillText(dy,p[0]+6,p[1]-12);
+p=T(dx,dy,dz/2);g.fillText(dz,p[0]+14,p[1]+4);
+g.font='13px sans-serif';g.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--tx');g.fillText(cap,cw/2,ch+14)}
+function draw3(){
+const[g,cw,ch]=setup($('c3'),0.62);g.clearRect(0,0,cw,ch);
+if(!res||!res.total)return;
+const{L,W,H,PH,layers,c,rects}=res,TH=PH+H,C=.866,cs=getComputedStyle(document.documentElement);
+const P=(x,y,z)=>[(x-y)*C,(x+y)*.5-z];
+const pts=[];for(const x of[0,L])for(const y of[0,W])for(const z of[0,TH])pts.push(P(x,y,z));
+const x0=Math.min(...pts.map(p=>p[0])),x1=Math.max(...pts.map(p=>p[0])),y0=Math.min(...pts.map(p=>p[1])),y1=Math.max(...pts.map(p=>p[1]));
+const s=Math.min((cw-24)/(x1-x0),(ch-24)/(y1-y0)),ox=(cw-(x1-x0)*s)/2-x0*s,oy=(ch-(y1-y0)*s)/2-y0*s;
+const T=(x,y,z)=>{const p=P(x,y,z);return[ox+p[0]*s,oy+p[1]*s]};
+function poly(a,f,st){g.beginPath();a.forEach((q,i)=>{const p=T(q[0],q[1],q[2]);i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1])});g.closePath();g.fillStyle=f;g.fill();if(st){g.strokeStyle=st;g.lineWidth=.6;g.stroke()}}
+function box(x,y,z,dx,dy,dz,cl,st){const X=x+dx,Y=y+dy,Z=z+dz;
+poly([[x,Y,z],[X,Y,z],[X,Y,Z],[x,Y,Z]],cl[1],st);poly([[X,y,z],[X,Y,z],[X,Y,Z],[X,y,Z]],cl[2],st);poly([[x,y,Z],[X,y,Z],[X,Y,Z],[x,Y,Z]],cl[0],st)}
+g.strokeStyle=cs.getPropertyValue('--mu').trim();g.lineWidth=.8;g.setLineDash([4,3]);
+const E12=[[0,0,0,L,0,0],[0,W,0,L,W,0],[0,0,0,0,W,0],[L,0,0,L,W,0],[0,0,TH,L,0,TH],[0,W,TH,L,W,TH],[0,0,TH,0,W,TH],[L,0,TH,L,W,TH],[0,0,0,0,0,TH],[L,0,0,L,0,TH],[0,W,0,0,W,TH],[L,W,0,L,W,TH]];
+for(const e of E12){const a=T(e[0],e[1],e[2]),b=T(e[3],e[4],e[5]);g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);g.stroke()}
+g.setLineDash([]);
+if(PH>0)box(0,0,0,L,W,PH,['#e3bd7e','#c99b58','#a97d3f'],'#5a3c14');
+const red=['#ff9c9c','#ff7070','#e65c5c'],big=res.S.reduce((s,l)=>s+l.rects.length,0)>2500;
+let mX=0,mY=0;[...new Set(res.S.map(l=>l.rects))].flat().forEach(r=>{mX=Math.max(mX,r[0]+r[2]);mY=Math.max(mY,r[1]+r[3])});
+const srt=a=>[...a].sort((p,q)=>(p[0]+p[2]/2+p[1]+p[3]/2)-(q[0]+q[2]/2+q[1]+q[3]/2)),cache=new Map(),PR=[],grey=['#9aa0a6','#7d838a','#5f656b'];let z=PH;
+for(let k=0;k<res.S.length;k++){const l=res.S[k];if(!cache.has(l.rects))cache.set(l.rects,srt(l.rects.concat(PR)));for(const r of cache.get(l.rects)){
+if(big&&k<res.S.length-1&&r[0]+r[2]<mX-E&&r[1]+r[3]<mY-E)continue;
+box(r[0],r[1],z,r[2],r[3],l.c,r[4]?grey:red,r[4]?'#333':big?null:'#6b1f1f')}z+=l.c}
+postList(L,W).forEach(r=>{const hp=Math.min(POST.hp,H);box(r[0],r[1],PH+H-hp,r[2],r[3],hp,grey,'#333')});
+gaps(g,T,res)}
+function draw2(){
+const[g,cw,ch]=setup($('c2'),0.5);g.clearRect(0,0,cw,ch);
+if(!res||!res.total){$('t2').textContent='俯視圖';return}
+const lyr=Math.min(+$('ly').value||1,res.S.length);$('ly').max=res.S.length;$('t2').textContent='俯視圖（第 '+lyr+' 層，共 '+res.S[lyr-1].rects.length+' 個）';
+const{L,W}=res,rects=res.S[lyr-1].rects,s=Math.min((cw-24)/L,(ch-24)/W),ox=(cw-L*s)/2,oy=(ch-W*s)/2;
+g.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--card');g.fillRect(ox,oy,L*s,W*s);
+rects.forEach(r=>{g.fillStyle='#ff8484';g.fillRect(ox+r[0]*s,oy+r[1]*s,r[2]*s,r[3]*s);g.strokeStyle='#6b1f1f';g.lineWidth=.6;g.strokeRect(ox+r[0]*s,oy+r[1]*s,r[2]*s,r[3]*s)});
+(res.S[lyr-1].res?postList(L,W):[]).forEach(r=>{g.fillStyle='#8a9097';g.fillRect(ox+r[0]*s,oy+r[1]*s,r[2]*s,r[3]*s)});
+g.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--mu');g.lineWidth=1.2;g.strokeRect(ox,oy,L*s,W*s)}
+document.querySelectorAll('input:not(#ly)').forEach(e=>e.addEventListener('input',()=>{if(e.type=='number'&&'LWH'.includes(e.id))$('preset').value=0;calc()}));
+addEventListener('resize',draw);
+$('exp').onclick=exportImg;$('ly').oninput=draw2;
+fillPreset();calc();
+</script></body></html>
