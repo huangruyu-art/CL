@@ -40,7 +40,7 @@ canvas{width:100%;display:block;border-radius:8px;background:var(--bg)}
 <label id="lh"><span id="lh-t">高 H</span><input type="number" id="H" value="40" min="1" step="any"></label>
 <label id="lp" style="display:none">棧板自身高度<input type="number" id="PH" value="15" min="0" step="any"></label>
 <div id="rsv"><label>兩側各預留<input type="number" id="rsS" value="0" min="0" step="any"></label><label>尾端（門側）預留<input type="number" id="rsE" value="0" min="0" step="any"></label><label>頂部預留<input type="number" id="rsT" value="0" min="0" step="any"></label>
-<label>貨櫃角部結構邊長（0＝不考慮）<input type="number" id="pc" value="15" min="0" step="any"></label><label>結構高度（從頂部往下）<input type="number" id="pch" value="15" min="0" step="any"></label><label class="chk"><input type="checkbox" id="pb">前後端四個角都有結構（預設只有最裡面兩角）</label><p class="note">貨櫃內壁有波紋與角柱，貨物無法貼齊。預留值（cm）會從可用空間扣除，剩餘空間標示也以扣除後為準。</p></div>
+<label>貨櫃角部結構邊長（0＝不考慮）<input type="number" id="pc" value="0" min="0" step="any"></label><label>結構高度（從頂部往下）<input type="number" id="pch" value="0" min="0" step="any"></label><label class="chk"><input type="checkbox" id="pb">前後端四個角都有結構（預設只有最裡面兩角）</label><p class="note">貨櫃內壁有波紋與角柱，貨物無法貼齊。預留值（cm）會從可用空間扣除，剩餘空間標示也以扣除後為準。</p></div>
 <h2>物品尺寸（cm）</h2>
 <label>長<input type="number" id="l" value="20" min="0.1" step="any"></label>
 <label>寬<input type="number" id="w" value="15" min="0.1" step="any"></label>
