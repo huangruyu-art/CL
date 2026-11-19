@@ -112,7 +112,7 @@ return out}
 function why(b,L,W){if(b.rectsB)return ' 交叉疊放：奇數層每層 '+b.rects.length+' 個，偶數層轉 90° 每層 '+b.rectsB.length+' 個，上下層交錯較穩定（不要求交叉時最多可放 '+packLayer(L,W,b.fp[0],b.fp[1],true).length*b.layers+' 個）。';const ks=new Set(b.rects.map(r=>Math.round(r[2]*1e4)+'x'+Math.round(r[3]*1e4)));if(ks.size<2)return '';
 const n0=packLayer(L,W,b.fp[0],b.fp[1],false).length,n1=b.rects.length;
 return n1>n0?' 轉向原因：不轉向時每層最多放 '+n0+' 個，剩下的空隙放不下一個物品；把部分物品水平轉 90° 去填空隙後，每層可放 '+n1+' 個（多 '+(n1-n0)+' 個）。':'';}
-let sel=0,POST={c:0,both:false};
+let EXP=0,sel=0,POST={c:0,both:false};
 function calc(keep){
 POST={c:mode=='box'?Math.max(0,+$('pc').value||0):0,both:$('pb').checked,hp:Math.max(0,+$('pch').value||0),on:false};
 const rs=mode=='box'?[+$('rsS').value||0,+$('rsE').value||0,+$('rsT').value||0]:[0,0,0];
@@ -150,39 +150,49 @@ const names=['長','寬','高'],mixed=new Set(best.rects.map(r=>r[2]+'x'+r[3])).
 $('desc').textContent='擺放方式：物品以「'+names[best.v]+'（'+I[best.v]+' cm）」朝上'+(best.v==2?'（原方向）':'（側放／倒放）')+'，底面 '+best.fp[0]+' × '+best.fp[1]+' cm，'+(best.rects.kind=='pinwheel'?'每層為風車式（四區塊繞中心）排列':mixed?'每層為兩區塊混向排列':'每層整齊對齊')+'，共 '+best.layers+' 層。'+why(best,L,W)+(res.total<ub?' 與體積上限差 '+(ub-res.total)+' 個，是因為尺寸無法剛好整除而留下縫隙。':'')}
 if(best&&best.seg)$('desc').textContent='分層混向擺放：'+best.seg.map(s=>'以「'+['長','寬','高'][s.v]+'」朝上疊 '+s.k+' 層（每層 '+s.n+' 個）').join('，再')+'。';
 if(best&&best.S.some(l=>l.res)){const rl=best.S.filter(l=>l.res);$('desc').textContent+=' 頂部 '+rl.length+' 層需避開貨櫃角部結構（'+POST.c+' × '+POST.c+' cm，高 '+POST.hp+' cm），該層每層 '+rl[0].rects.length+' 個。'}
-if(best){const q=gapInfo(res),f=v=>Math.round(v*10)/10;$('desc').textContent+=' 剩餘空間：上方 '+f(q.gh)+' cm、側邊（寬）'+f(q.gw)+' cm、尾端（長）'+f(q.gl)+' cm。'}
+if(best){const q=gapInfo(res),f=v=>Math.round(v*10)/10;$('desc').textContent+=' 使用空間（長×寬×高）：'+f(q.uL)+' × '+f(q.uW)+' × '+f(q.uH)+' cm。 剩餘空間：上方 '+f(q.gh)+' cm、側邊（寬）'+f(q.gw)+' cm、尾端（長）'+f(q.gl)+' cm。'}
 draw();renderPlans(plans,I,L,W,H)}
 function renderPlans(P,I,L,W,H){
 const nm=['長','寬','高'],vol=L*W*H,iv=I[0]*I[1]*I[2],r1=v=>Math.round(v*10)/10;
 $('plans').innerHTML=P.length?P.slice(0,12).map((p,i)=>'<div class="row'+(i==sel?' on':'')+'"><canvas width="120" height="76"></canvas><div><b>'+(i+1)+'. '+p.name+'　'+p.total+' 個</b><br><span>'+nm[p.v]+'朝上（'+r1(I[p.v])+' cm），底面 '+r1(p.fp[0])+' × '+r1(p.fp[1])+'<br>'+(p.seg?p.seg.map(s=>nm[s.v]+'朝上 '+s.k+' 層×'+s.n).join(' + '):p.layers+' 層 × 每層 '+p.rects.length+(p.rectsB?' / '+p.rectsB.length:''))+'　利用率 '+(p.total*iv/vol*100).toFixed(1)+'%</span></div></div>').join(''):'<p class="note">沒有可行的方案。</p>';
 $('plans').querySelectorAll('.row').forEach((r,i)=>{r.onclick=()=>{sel=i;calc(true)};thumb(r.querySelector('canvas'),P[i],L,W)})}
 function gapInfo(r){let uL=0,uW=0,uH=0;const seen=new Set();r.S.forEach(l=>{uH+=l.c;if(!seen.has(l.rects)){seen.add(l.rects);l.rects.forEach(q=>{uL=Math.max(uL,q[0]+q[2]);uW=Math.max(uW,q[1]+q[3])})}});return{uL,uW,uH,gl:r.L-uL,gw:r.W-uW,gh:r.H-uH}}
+function edgeLbl(g,T,r){
+const pal=mode=='pal',n=v=>Math.round(v*10)/10;
+function lab(a,dx,dy,t){const p=T(...a);g.save();g.font='600 13px sans-serif';g.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--tx');g.textAlign='center';g.textBaseline='middle';g.fillText(t,p[0]+dx,p[1]+dy);g.restore()}
+lab([r.L/2,r.W,0],-40,40,(pal?'棧板長：':'長：')+n(r.L)+' cm');
+lab([r.L,r.W/2,0],40,40,(pal?'棧板寬：':'寬：')+n(r.W)+' cm')}
 function gaps(g,T,r){const q=gapInfo(r),PH=r.PH,TH=PH+r.H,zt=PH+q.uH,f=v=>(Math.round(v*10)/10)+' cm';
-function seg(a,b,t){const p=T(...a),e=T(...b);g.save();g.strokeStyle='#e0a000';g.lineWidth=2.5;g.beginPath();g.moveTo(p[0],p[1]);g.lineTo(e[0],e[1]);g.stroke();
-const mx=(p[0]+e[0])/2,my=(p[1]+e[1])/2;g.font='600 12px sans-serif';const w=g.measureText(t).width+10;g.fillStyle='#fff7d6';g.lineWidth=1;g.fillRect(mx-w/2,my-10,w,20);g.strokeRect(mx-w/2,my-10,w,20);g.fillStyle='#4a3300';g.textAlign='center';g.textBaseline='middle';g.fillText(t,mx,my);g.restore()}
-if(q.gh>.05)seg([0,r.W,zt],[0,r.W,TH],'上方 '+f(q.gh));
-if(q.gl>.05)seg([q.uL,r.W,PH],[r.L,r.W,PH],'尾端 '+f(q.gl));
-if(q.gw>.05)seg([r.L,q.uW,PH],[r.L,r.W,PH],'側邊 '+f(q.gw))}
+function seg(a,b,t,side,dy){const p=T(...a),e=T(...b);g.save();g.strokeStyle='#e0a000';g.lineWidth=2.5;g.beginPath();g.moveTo(p[0],p[1]);g.lineTo(e[0],e[1]);g.stroke();
+let mx=(p[0]+e[0])/2,my=(p[1]+e[1])/2;g.font='600 12px sans-serif';const w=g.measureText(t).width+10;
+if(side){const ox=mx,oy=my,h=dy!=null;mx+=side*(h?w/2+12:12);my+=h?dy:26;g.strokeStyle='#e0a000';g.lineWidth=1;g.beginPath();g.moveTo(ox,oy);g.lineTo(h?mx-side*w/2:mx,h?my:my-10);g.stroke()}g.fillStyle='#fff7d6';g.lineWidth=1;g.fillRect(mx-w/2,my-10,w,20);g.strokeRect(mx-w/2,my-10,w,20);g.fillStyle='#4a3300';g.textAlign='center';g.textBaseline='middle';g.fillText(t,mx,my);g.restore()}
+if(q.gh>.05)seg([0,r.W,zt],[0,r.W,TH],'上方 '+f(q.gh),-1,0);
+if(q.gl>.05)seg([q.uL,0,PH],[r.L,0,PH],'剩餘 '+f(q.gl),1);
+if(q.gw>.05)seg([0,q.uW,PH],[0,r.W,PH],'剩餘 '+f(q.gw),-1);
+edgeLbl(g,T,r)}
 function exportImg(){
 if(!res)return;
+EXP=4;draw();
 const cs=getComputedStyle(document.documentElement),bg=cs.getPropertyValue('--card').trim(),tx=cs.getPropertyValue('--tx').trim(),f=v=>Math.round(v*10)/10,q=gapInfo(res),bag=$('bag').checked,cp=bag?+$('cp').value||0:0,pal=mode=='pal';
 const iv=$('l').value*$('w').value*$('h').value*(1-cp/100);
 const lines=['方案：'+res.name+'　可放 '+res.total+' 個（空間利用率 '+(res.total*iv/(res.L*res.W*res.H)*100).toFixed(1)+'%）',
 (pal?'棧板尺寸：'+res.L+' × '+res.W+'，棧板高 '+res.PH+'，可堆疊高度 '+res.H:'容器內部尺寸：'+$('L').value+' × '+$('W').value+' × '+$('H').value+'，扣除預留後可用 '+res.L+' × '+res.W+' × '+res.H)+' cm',
 '物品尺寸：'+$('l').value+' × '+$('w').value+' × '+$('h').value+' cm'+(bag?'（軟包裝，厚度壓縮 '+cp+'%）':''),
+'使用空間（長×寬×高）：'+f(q.uL)+' × '+f(q.uW)+' × '+f(q.uH)+' cm',
 '剩餘空間：上方 '+f(q.gh)+' cm、側邊（寬）'+f(q.gw)+' cm、尾端（長）'+f(q.gl)+' cm'];
 const secs=[['立體圖',$('c3')],['單一物品擺放方向（cm）',$('c1')],[$('t2').textContent,$('c2')]],W=900,iw=W-40;
 let H=30+lines.length*26+10;secs.forEach(s=>{H+=34+Math.round(iw*s[1].height/s[1].width)});
-const cv=document.createElement('canvas');cv.width=W;cv.height=H+10;const g=cv.getContext('2d');g.fillStyle=bg;g.fillRect(0,0,W,H+10);g.fillStyle=tx;g.textBaseline='middle';
+const K=3,cv=document.createElement('canvas');cv.width=W*K;cv.height=(H+10)*K;const g=cv.getContext('2d');g.scale(K,K);g.imageSmoothingQuality='high';g.fillStyle=bg;g.fillRect(0,0,W,H+10);g.fillStyle=tx;g.textBaseline='middle';
 g.font='600 18px sans-serif';let y=30;lines.forEach((t,i)=>{g.font=(i?'400 15px':'600 18px')+' sans-serif';g.fillText(t,20,y);y+=26});y+=10;
 secs.forEach(s=>{g.font='600 15px sans-serif';g.fillStyle=tx;g.fillText(s[0],20,y+10);y+=26;const h=Math.round(iw*s[1].height/s[1].width);g.drawImage(s[1],20,y,iw,h);y+=h+8});
+EXP=0;draw();
 cv.toBlob(async b=>{let d=null;try{d=window.claude&&claude.use?await claude.use('downloads'):null}catch(e){}
 if(d){try{await d.save({filename:'packing-plan.png',data:b});return}catch(e){if(e&&e.code=='declined')return}}
 const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='packing-plan.png';document.body.appendChild(a);a.click();a.remove()},'image/png')}
 function thumb(cv,p,L,W){const g=cv.getContext('2d'),w=cv.width,h=cv.height,s=Math.min((w-8)/L,(h-8)/W),ox=(w-L*s)/2,oy=(h-W*s)/2;
 p.rects.forEach(r=>{g.fillStyle='#ff8484';g.fillRect(ox+r[0]*s,oy+r[1]*s,r[2]*s,r[3]*s);if(p.rects.length<300){g.strokeStyle='#6b1f1f';g.lineWidth=.5;g.strokeRect(ox+r[0]*s,oy+r[1]*s,r[2]*s,r[3]*s)}});
 g.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--mu');g.lineWidth=1;g.strokeRect(ox,oy,L*s,W*s)}
-function setup(cv,ratio){const d=devicePixelRatio||1,w=cv.clientWidth,h=Math.round(w*ratio);cv.width=w*d;cv.height=h*d;cv.style.height=h+'px';const g=cv.getContext('2d');g.setTransform(d,0,0,d,0,0);return[g,w,h]}
+function setup(cv,ratio){const d=EXP||devicePixelRatio||1,w=cv.clientWidth,h=Math.round(w*ratio);cv.width=w*d;cv.height=h*d;cv.style.height=h+'px';const g=cv.getContext('2d');g.setTransform(d,0,0,d,0,0);return[g,w,h]}
 function draw(){draw3();draw1();draw2()}
 function draw1(){
 const[g,W0,ch]=setup($('c1'),0.5);g.clearRect(0,0,W0,ch);
@@ -212,7 +222,7 @@ const{L,W,H,PH,layers,c,rects}=res,TH=PH+H,C=.866,cs=getComputedStyle(document.d
 const P=(x,y,z)=>[(x-y)*C,(x+y)*.5-z];
 const pts=[];for(const x of[0,L])for(const y of[0,W])for(const z of[0,TH])pts.push(P(x,y,z));
 const x0=Math.min(...pts.map(p=>p[0])),x1=Math.max(...pts.map(p=>p[0])),y0=Math.min(...pts.map(p=>p[1])),y1=Math.max(...pts.map(p=>p[1]));
-const s=Math.min((cw-24)/(x1-x0),(ch-24)/(y1-y0)),ox=(cw-(x1-x0)*s)/2-x0*s,oy=(ch-(y1-y0)*s)/2-y0*s;
+const s=Math.min((cw-200)/(x1-x0),(ch-84)/(y1-y0)),ox=(cw-(x1-x0)*s)/2-x0*s,oy=(ch-(y1-y0)*s)/2-y0*s;
 const T=(x,y,z)=>{const p=P(x,y,z);return[ox+p[0]*s,oy+p[1]*s]};
 function poly(a,f,st){g.beginPath();a.forEach((q,i)=>{const p=T(q[0],q[1],q[2]);i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1])});g.closePath();g.fillStyle=f;g.fill();if(st){g.strokeStyle=st;g.lineWidth=.6;g.stroke()}}
 function box(x,y,z,dx,dy,dz,cl,st){const X=x+dx,Y=y+dy,Z=z+dz;
