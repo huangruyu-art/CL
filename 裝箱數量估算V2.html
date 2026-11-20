@@ -128,7 +128,9 @@ const layers=Math.floor(H/c+E);if(layers<1)continue;
 const gA=packLayer(L,W,fp[0],fp[1],false),gB=packLayer(L,W,fp[1],fp[0],false),sq=fp[0]===fp[1];
 if(!cross){add(v,c,fp,layers,'整齊排列',gA);
 if(rot&&!sq){if(gB.length!==gA.length)add(v,c,fp,layers,'整齊排列（轉 90°）',gB);
-const mx=packLayer(L,W,fp[0],fp[1],true);if(mx.length>Math.max(gA.length,gB.length))add(v,c,fp,layers,mx.kind=='pinwheel'?'風車式排列':'兩區塊混向',mx)}}
+const g=Math.max(gA.length,gB.length),tb=packLayer(L,W,fp[0],fp[1],true,1),mx=packLayer(L,W,fp[0],fp[1],true);
+if(tb.length>g)add(v,c,fp,layers,'兩區塊混向',tb);
+if(mx.kind=='pinwheel'&&mx.length>tb.length)add(v,c,fp,layers,'風車式排列（四區塊）',mx)}}
 if(bag&&!sq){let A=gA,B=gB;if(B.length>A.length){const t=A;A=B;B=t}add(v,c,fp,layers,'交叉疊放',A,B)}}
 plans.forEach(p=>{p.S=Array.from({length:p.layers},(_,k)=>({rects:k%2&&p.rectsB?p.rectsB:p.rects,c:p.c,fp:p.fp,v:p.v}))});
 const rpC={},rpBest=fp=>{const key=fp.join('x');if(rpC[key])return rpC[key];POST.on=true;let b=packLayer(L,W,fp[0],fp[1],false);const b2=packLayer(L,W,fp[1],fp[0],false);if(b2.length>b.length)b=b2;if(rot){const b3=packLayer(L,W,fp[0],fp[1],true);if(b3.length>b.length)b=b3}POST.on=false;return rpC[key]=b};
